@@ -1,36 +1,125 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bitespeed Backend Task: Identity Reconciliation
 
-## Getting Started
+## Project Overview
 
-First, run the development server:
+This project implements an identity reconciliation service for FluxKart.com, helping to track customer identities across multiple purchases even when they use different contact information. The service is designed to identify and link customer contacts based on common email addresses or phone numbers.
+
+## Problem Statement
+
+FluxKart.com needs to track customer identities across multiple purchases where customers might use different email addresses and phone numbers. The service maintains a relational database of contact information and provides an API endpoint to identify and consolidate customer identities.
+
+## Database Schema
+
+The service uses a Contact table with the following structure:
+
+```typescript
+{
+    id                   Int
+    phoneNumber          String?
+    email                String?
+    linkedId             Int?
+    linkPrecedence       "secondary"|"primary"
+    createdAt            DateTime
+    updatedAt            DateTime
+    deletedAt            DateTime?
+}
+```
+
+## API Endpoint
+
+### POST /identify
+
+**Request Format:**
+
+```json
+{
+    "email"?: string,
+    "phoneNumber"?: number
+}
+```
+
+**Response Format:**
+
+```json
+{
+    "contact": {
+        "primaryContatctId": number,
+        "emails": string[],
+        "phoneNumbers": string[],
+        "secondaryContactIds": number[]
+    }
+}
+```
+
+## Business Rules
+
+1. **New Contact Creation:**
+
+   - If no existing contacts match the incoming request, creates a new primary contact
+   - Returns it with an empty array for secondaryContactIds
+
+2. **Secondary Contact Creation:**
+
+   - Created when an incoming request has either phoneNumber or email common with existing contact but contains new information
+
+3. **Contact Linking:**
+   - Contacts are linked if they share either email or phone number
+   - The oldest contact is treated as "primary"
+   - All other linked contacts become "secondary"
+   - Primary contacts can be converted to secondary if linked to an older primary contact
+
+## Example Scenarios
+
+### Scenario 1: New Contact
+
+**Request:**
+
+```json
+{
+  "email": "lorraine@hillvalley.edu",
+  "phoneNumber": "123456"
+}
+```
+
+Creates a new primary contact.
+
+### Scenario 2: Linking Contacts
+
+**Request:**
+
+```json
+{
+  "email": "mcfly@hillvalley.edu",
+  "phoneNumber": "123456"
+}
+```
+
+Creates a secondary contact linked to the existing primary contact due to matching phone number.
+
+## Technical Stack
+
+- Backend Framework: Next.js with TypeScript
+- Database: In-memory storage (Note: Should be migrated to a SQL database for production)
+
+## Local Development
+
+1. Clone the repository:
+
+```bash
+git clone [repository-url]
+cd bitespeed
+```
+
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. The API will be available at `http://localhost:3000/api/identify`
